@@ -1,0 +1,67 @@
+description = 'Lane System'
+ext.details = "Sensor system for RPM lanes"
+version = '2.1.0'
+
+dependencies {
+    implementation 'org.sensorhub:sensorhub-core:' + oshCoreVersion
+    implementation 'org.sensorhub:sensorhub-datastore-h2:' + oshCoreVersion
+    implementation project(':sensorhub-utils-rad')
+    implementation project(':sensorhub-driver-aspect')
+    implementation project(':sensorhub-driver-rapiscan')
+    implementation project(':sensorhub-driver-videocam')
+    // NOTE: Uncomment and use if you want to run specific lane module unit tests
+//    testImplementation project(':sensorhub-driver-fakeweather')
+    implementation project(':sensorhub-driver-ffmpeg')
+    testImplementation('junit:junit:4.13.1')
+    implementation('junit:junit:4.13.1')
+}
+
+// exclude tests requiring connection to the sensor
+// these have to be run manually
+//      If tests are to be excluded list them here as follows
+//          exclude '**/TestNameClass.class'
+test {
+    useJUnit()
+}
+
+tasks.register('copyReadme', Copy) {
+    from "${projectDir}/README.md"
+    into "${projectDir}/src/main/resources/com/botts/impl/system/lane/config"
+    onlyIf { file("${projectDir}/README.md").exists() }
+}
+
+processResources {
+    dependsOn copyReadme
+}
+
+// add info to OSGi manifest
+osgi {
+    manifest {
+        attributes('Bundle-Vendor': 'Botts Innovative Research, Inc.')
+        attributes('Bundle-Activator': 'com.botts.impl.system.lane.Activator')
+    }
+}
+
+// add info to maven pom
+ext.pom >>= {
+    developers {
+        developer {
+            id 'earocorn'
+            name 'Alex Almanza'
+            organization 'Botts Innovative Research, Inc.'
+            organizationUrl 'https://www.botts-inc.com'
+        }
+        developer {
+            id 'kalynstricklin'
+            name 'Kalyn Stricklin'
+            organization 'Botts Innovative Research, Inc.'
+            organizationUrl 'https://www.botts-inc.com'
+        }
+        developer {
+            id 'kyle-fitzp'
+            name 'Kyle Fitzpatrick'
+            organization 'Botts Innovative Research, Inc.'
+            organizationUrl 'https://www.botts-inc.com'
+        }
+    }
+}

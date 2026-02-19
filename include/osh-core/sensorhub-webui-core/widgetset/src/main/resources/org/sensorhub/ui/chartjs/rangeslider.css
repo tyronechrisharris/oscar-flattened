@@ -1,0 +1,68 @@
+.storage-navslider {
+	border: 0px;
+	box-shadow: none;
+}
+
+.storage-navslider .noUi-base {
+  position: absolute !important;
+  top: 0;
+  height: calc(100% - 20px);
+  border-radius: 4px;
+  border: 1px solid #D3D3D3;
+  box-shadow: inset 0 1px 1px #F0F0F0, 0 3px 6px -5px #BBB;
+}
+
+.storage-navslider .noUi-connect {
+  background-color: #cccc !important;
+}
+
+.storage-navslider .noUi-connect+.noUi-draggable {
+  background-color: #0000 !important;
+}
+
+.storage-navslider .noUi-origin {
+  background-color: #000d;
+}
+
+.storage-navslider .noUi-handle {
+  width: 10px !important;
+  top: 1px !important;
+}
+
+.storage-navslider .noUi-handle:before {
+	top: 1.5px;
+	width: 0;
+}
+
+.storage-navslider .noUi-handle-lower {
+	right: 0 !important;
+}
+
+.noUi-horizontal .noUi-handle-lower:before {
+	left: 1px;
+	font-family: FontAwesome;
+  content: "\f104";
+}
+
+.storage-navslider .noUi-handle-upper {
+  right: -10px !important;
+}
+
+.storage-navslider .noUi-handle-upper:before {
+  left: 2px;
+  font-family: FontAwesome;
+  content: "\f105";
+}
+
+.storage-navslider .noUi-handle:after {
+  display: none;
+}
+
+.storage-navslider .noUi-tooltip {
+  display: none;
+  font-size: 80%;
+}
+
+.storage-navslider .noUi-active .noUi-tooltip {
+  display: block;
+}

@@ -1,0 +1,36 @@
+description = 'OSH Datastore (H2)'
+ext.details = 'Storage module backed by a H2 MVStore object database'
+
+dependencies {
+  implementation project(':sensorhub-core')
+  implementation project(':sensorhub-utils-kryo')
+  embeddedApi 'com.h2database:h2-mvstore:1.4.200'
+  embeddedApi 'org.apache.lucene:lucene-analyzers-common:8.11.2'
+  testImplementation(testFixtures(project(':sensorhub-core')))
+}
+
+test {
+  filter {
+    excludeTestsMatching 'org.sensorhub.impl.datastore.h2.TestMVFeatureStore.test*Throughput'
+  }
+}
+
+// add info to OSGI manifest
+osgi {
+  manifest {
+    attributes 'Bundle-Vendor': 'Sensia Software LLC'
+    attributes 'Bundle-Activator': 'org.sensorhub.impl.datastore.h2.Activator'
+  }
+}
+
+// add info to maven pom
+ext.pom >>= {
+  developers {
+    developer {
+      id 'alexrobin'
+      name 'Alex Robin'
+      organization 'Sensia Software LLC'
+      organizationUrl 'http://www.sensiasoftware.com' 
+    }
+  } 
+}

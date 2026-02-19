@@ -1,0 +1,48 @@
+description = 'Gridded Dataset Utilities'
+ext.details = 'Various utilities for handling grid formats based on Unidata library'
+version = '0.3.3'
+
+def thisProjectDir = projectDir
+rootProject.allprojects {
+  repositories {
+    /*maven {
+      name 'unidata'
+      url 'https://artifacts.unidata.ucar.edu/repository/unidata-all'
+    }*/
+    maven {
+      name 'unidata-local'
+      url "file:///$thisProjectDir/libs"
+    }
+  }
+}
+
+dependencies {
+  implementation 'org.sensorhub:sensorhub-core:' + oshCoreVersion
+  embeddedApi ('edu.ucar:grib:4.6.10') {
+    exclude group: 'com.amazonaws', module: 'aws-java-sdk-s3'
+    exclude group: 'org.apache.httpcomponents', module: 'httpcore'
+    exclude group: 'org.apache.httpcomponents', module: 'httpclient'
+    exclude group: 'org.apache.httpcomponents', module: 'httpmime'
+    exclude group: 'com.google.guava', module: 'guava'
+    exclude group: 'org.slf4j', module: 'slf4j-api'
+  }
+}
+
+// add info to OSGi manifest
+osgi {
+  manifest {
+    attributes('Bundle-Vendor': 'Botts Innovative Research Inc.')
+  }
+}
+
+// add info to maven pom
+ext.pom >>= {
+  developers {
+    developer {
+      id 'TheRestOfMe'
+      name 'Tony Cook'
+      organization 'Botts Innovative Research Inc.'
+      organizationUrl 'http://www.botts-inc.com' 
+    }
+  }
+}

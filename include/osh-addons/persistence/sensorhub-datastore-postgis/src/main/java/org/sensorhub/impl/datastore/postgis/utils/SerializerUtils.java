@@ -1,0 +1,676 @@
+/***************************** BEGIN LICENSE BLOCK ***************************
+
+ The contents of this file are subject to the Mozilla Public License, v. 2.0.
+ If a copy of the MPL was not distributed with this file, You can obtain one
+ at http://mozilla.org/MPL/2.0/.
+
+ Software distributed under the License is distributed on an "AS IS" basis,
+ WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ for the specific language governing rights and limitations under the License.
+
+ Copyright (C) 2023 Georobotix. All Rights Reserved.
+
+ ******************************* END LICENSE BLOCK ***************************/
+
+package org.sensorhub.impl.datastore.postgis.utils;
+
+import com.google.common.base.Strings;
+import com.google.gson.*;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonToken;
+import com.google.gson.stream.JsonWriter;
+import net.opengis.swe.v20.*;
+import org.sensorhub.api.command.*;
+import org.sensorhub.api.common.BigId;
+import org.sensorhub.api.data.DataStreamInfo;
+import org.sensorhub.api.data.IDataStreamInfo;
+import org.sensorhub.api.feature.FeatureId;
+import org.sensorhub.impl.datastore.DataStoreFiltersTypeAdapterFactory;
+import org.sensorhub.impl.datastore.postgis.RuntimeTypeAdapterFactory;
+import org.sensorhub.impl.service.consys.SWECommonUtils;
+import org.vast.cdm.common.DataStreamWriter;
+import org.vast.ogc.gml.GeoJsonBindings;
+import org.vast.ogc.gml.IFeature;
+import org.vast.sensorML.SMLJsonBindings;
+import org.vast.swe.AbstractDataWriter;
+import org.vast.swe.BinaryDataWriter;
+import org.vast.swe.SWEJsonBindings;
+import org.vast.swe.fast.JsonDataParserGson;
+import org.vast.swe.fast.JsonDataWriterGson;
+import org.vast.util.DateTimeFormat;
+import org.vast.util.TimeExtent;
+
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+
+import static org.sensorhub.impl.datastore.postgis.utils.PostgisUtils.MAX_INSTANT;
+import static org.sensorhub.impl.datastore.postgis.utils.PostgisUtils.MIN_INSTANT;
+
+public abstract class SerializerUtils {
+
+    static final GsonBuilder builder = new GsonBuilder()
+            .setLenient()
+            .setPrettyPrinting()
+            .disableHtmlEscaping()
+            .serializeSpecialFloatingPointValues()
+            .registerTypeAdapter(BigId.class, new BigIdTypeAdapter())
+            .setFieldNamingStrategy(new DataStoreFiltersTypeAdapterFactory.FieldNamingStrategy())
+            .registerTypeAdapterFactory(new RuntimeTypeAdapterFactory<>(Object.class, "objClass"))
+            .setExclusionStrategies(new DataStreamExclusionStrategy());
+
+//    public static final Gson Gson = builder.create();
+
+    private static final  ThreadLocal<GeoJsonBindings> geoJsonBindings = ThreadLocal.withInitial(() -> new GeoJsonBindings(true));
+    private static final  ThreadLocal<SWEJsonBindings> sweJsonBindings = ThreadLocal.withInitial(() -> new SWEJsonBindings(false));
+
+    private static final  ThreadLocal<SMLJsonBindings> smlJsonBindings  = ThreadLocal.withInitial(() -> new SMLJsonBindings(false));
+
+    private SerializerUtils() {
+    }
+
+    public static String writeDataBlockToJson(DataComponent dataComponent, DataEncoding dataEncoding, DataBlock dataBlock) {
+        DataStreamWriter dataWriter;
+        if(dataEncoding instanceof BinaryEncoding) {
+            dataWriter = new BinaryDataWriter();
+        } else {
+            dataWriter = new JsonDataWriterGson();
+        }
+        // set datastream schema
+        dataWriter.setDataComponents(dataComponent);
+        dataWriter.setDataEncoding(dataEncoding);
+        try (ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
+            dataWriter.setOutput(bos);
+            dataWriter.write(dataBlock);
+            dataWriter.flush();
+            return bos.toString();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static String reorderJsonBySchema(DataComponent schema, JsonObject input) {
+        JsonElement ordered = reorderBySchema(schema, input);
+        return ordered.toString();
+    }
+
+    public static JsonElement reorderBySchema(DataComponent schema, JsonElement inputElement) {
+        if (inputElement == null || inputElement.isJsonNull())
+            return JsonNull.INSTANCE;
+
+        if (schema instanceof DataRecord || schema instanceof Vector) {
+            JsonObject inputObj = inputElement.getAsJsonObject();
+            JsonObject orderedObj = new JsonObject();
+
+            for (int i = 0; i < schema.getComponentCount(); i++) {
+                DataComponent childSchema = schema.getComponent(i);
+                String name = childSchema.getName();
+
+                if (inputObj.has(name)) {
+                    JsonElement childInput = inputObj.get(name);
+                    JsonElement orderedChild = reorderBySchema(childSchema, childInput);
+                    orderedObj.add(name, orderedChild);
+                }
+            }
+
+            return orderedObj;
+        }
+
+        if (schema instanceof DataArray) {
+            DataArray dataArray = (DataArray) schema;
+            DataComponent elementSchema = dataArray.getElementType();
+
+            JsonArray inputArray = inputElement.getAsJsonArray();
+            JsonArray orderedArray = new JsonArray();
+
+            for (JsonElement arrayItem : inputArray) {
+                JsonElement orderedItem = reorderBySchema(elementSchema, arrayItem);
+                orderedArray.add(orderedItem);
+            }
+
+            return orderedArray;
+        }
+
+        return inputElement.deepCopy();
+    }
+
+    public static DataBlock readDataBlockFromJson(DataComponent dataComponent, String json) {
+        JsonDataParserGson jsonDataParserGson = new JsonDataParserGson();
+        jsonDataParserGson.setDataComponents(dataComponent);
+
+        // Parse raw JSON into a JsonObject
+        JsonElement element = JsonParser.parseString(json);
+        if (!element.isJsonObject()) {
+            throw new IllegalArgumentException("Expected top-level JSON object for SWE parsing.");
+        }
+        JsonObject inputObj = element.getAsJsonObject();
+
+        // Reorder JSON so fields follow the DataComponent schema order
+        JsonElement orderedElement = reorderBySchema(dataComponent, inputObj);
+        String orderedJson = orderedElement.toString();
+
+        // Parse the ordered JSON block
+        try (ByteArrayInputStream bis = new ByteArrayInputStream(orderedJson.getBytes())) {
+            jsonDataParserGson.setInput(bis);
+            return jsonDataParserGson.parseNextBlock();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static String writeIFeatureToJson(IFeature feature) throws IOException {
+        try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
+            try (var osw = new OutputStreamWriter(os, StandardCharsets.UTF_8)) {
+                try (JsonWriter jsonWriter = new JsonWriter(osw)) {
+                    jsonWriter.setLenient(true);
+                    jsonWriter.setSerializeNulls(false);
+                    jsonWriter.setIndent("  ");
+                    // start writing
+                    geoJsonBindings.get().writeFeature(jsonWriter, feature);
+                    jsonWriter.flush();
+                    return os.toString();
+                }
+            }
+        }
+    }
+
+    public static IFeature readIFeatureFromJson(String json) throws IOException {
+        try (var bis = new ByteArrayInputStream(json.getBytes(StandardCharsets.UTF_8))) {
+            try (var osr = new InputStreamReader(bis, StandardCharsets.UTF_8)) {
+                try (JsonReader jsonReader = new JsonReader(osr)) {
+                    jsonReader.setLenient(true);
+                    return geoJsonBindings.get().readFeature(jsonReader);
+                }
+            }
+        }
+    }
+
+    public static IDataStreamInfo readIDataStreamInfoFromJson(String json) throws IOException {
+        StringReader stringReader = new StringReader(json);
+        JsonReader jsonReader = new JsonReader(stringReader);
+
+        DataStreamInfo.DataStreamInfoBuilder<DataStreamInfo.Builder, DataStreamInfo> dataStreamInfoBuilder =
+                new DataStreamInfo.Builder().withName(SWECommonUtils.NO_NAME) // name will be set later
+                        .withSystem(FeatureId.NULL_FEATURE); // System ID will be set later
+        try {
+            // read BEGIN_OBJECT only if not already read by caller
+            // this happens when reading embedded schema and auto-detecting obs format
+            if (jsonReader.peek() == JsonToken.BEGIN_OBJECT)
+                jsonReader.beginObject();
+
+            DataComponent resultStruct = null;
+            String name = SWECommonUtils.NO_NAME;
+            while (jsonReader.hasNext()) {
+                var prop = jsonReader.nextName();
+
+                if ("recordSchema".equals(prop)) {
+                    resultStruct = sweJsonBindings.get().readDataComponent(jsonReader);
+                } else if ("recordEncoding".equals(prop)) {
+                    DataEncoding dataEncoding = sweJsonBindings.get().readEncoding(jsonReader);
+                    dataStreamInfoBuilder = dataStreamInfoBuilder.withRecordEncoding(dataEncoding);
+                } else if ("system@id".equals(prop)) {
+                    dataStreamInfoBuilder = dataStreamInfoBuilder.withSystem(readSystemID(jsonReader));
+                } else if ("outputName".equals(prop)) {
+                    name = jsonReader.nextString();
+                    dataStreamInfoBuilder = dataStreamInfoBuilder.withName(name);
+                }  else if ("description".equals(prop)) {
+                    dataStreamInfoBuilder = dataStreamInfoBuilder.withDescription(jsonReader.nextString());
+                } else if ("validTime".equals(prop)) {
+                    dataStreamInfoBuilder = dataStreamInfoBuilder.withValidTime(readTimeExtent(jsonReader));
+                } else {
+                    jsonReader.skipValue();
+                }
+            }
+            jsonReader.endObject();
+            if (resultStruct != null) {
+                resultStruct.setName(name);
+                dataStreamInfoBuilder = dataStreamInfoBuilder.withRecordDescription(resultStruct);
+            }
+        } catch (IOException | IllegalStateException e) {
+            throw new IOException(e.getMessage());
+        }
+
+        return dataStreamInfoBuilder.build();
+    }
+
+    public static String writeIDataStreamInfoToJson(IDataStreamInfo dsInfo) throws IOException {
+        try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
+            try (var osw = new OutputStreamWriter(os, StandardCharsets.UTF_8)) {
+                try (JsonWriter jsonWriter = new JsonWriter(osw)) {
+                    jsonWriter.beginObject();
+                    jsonWriter.setLenient(true);
+                    jsonWriter.setSerializeNulls(false);
+                    jsonWriter.setIndent("  ");
+                    // start writing
+                    jsonWriter.name("name").value(dsInfo.getName());
+                    jsonWriter.name("outputName").value(dsInfo.getOutputName());
+
+                    if (dsInfo.getSystemID() != null) {
+                        SerializerUtils.writeSystemID(jsonWriter, "system@id", dsInfo.getSystemID());
+                    }
+                    if(dsInfo.getValidTime() != null) {
+                        SerializerUtils.writeTimeExtent(jsonWriter,"validTime",dsInfo.getValidTime());
+                    }
+                    if (!Strings.isNullOrEmpty(dsInfo.getDescription())) {
+                        jsonWriter.name("description").value(dsInfo.getDescription());
+                    }
+
+                    if (dsInfo.getRecordEncoding() != null) {
+                        jsonWriter.name("recordEncoding");
+                        sweJsonBindings.get().writeAbstractEncoding(jsonWriter, dsInfo.getRecordEncoding());
+                    }
+
+                    jsonWriter.name("recordSchema");
+                    sweJsonBindings.get().writeDataComponent(jsonWriter, dsInfo.getRecordStructure(), false);
+                    jsonWriter.endObject();
+                    jsonWriter.flush();
+                    return os.toString();
+                } catch (Exception e) {
+                    throw new IOException("Error writing SWE Common record structure", e);
+                }
+            }
+        }
+    }
+
+    public static ICommandStreamInfo readICommandStreamInfoFromJson(String json) throws IOException {
+        StringReader stringReader = new StringReader(json);
+        JsonReader jsonReader = new JsonReader(stringReader);
+
+        CommandStreamInfo.CommandStreamInfoBuilder<CommandStreamInfo.Builder, CommandStreamInfo> commandStreamInfoBuilder =
+                new CommandStreamInfo.Builder().withName(SWECommonUtils.NO_NAME) // name will be set later
+                        .withSystem(FeatureId.NULL_FEATURE); // System ID will be set later
+        try {
+            // read BEGIN_OBJECT only if not already read by caller
+            // this happens when reading embedded schema and auto-detecting obs format
+            if (jsonReader.peek() == JsonToken.BEGIN_OBJECT)
+                jsonReader.beginObject();
+
+            String name = SWECommonUtils.NO_NAME;
+            while (jsonReader.hasNext()) {
+                var prop = jsonReader.nextName();
+
+                if ("recordSchema".equals(prop)) {
+                    DataComponent recordStruct = sweJsonBindings.get().readDataComponent(jsonReader);
+                    commandStreamInfoBuilder = commandStreamInfoBuilder.withRecordDescription(recordStruct);
+                } else if ("recordEncoding".equals(prop)) {
+                    DataEncoding dataEncoding = sweJsonBindings.get().readEncoding(jsonReader);
+                    commandStreamInfoBuilder = commandStreamInfoBuilder.withRecordEncoding(dataEncoding);
+                } else if ("resultSchema".equals(prop)) {
+                    DataComponent resultStruct = sweJsonBindings.get().readDataComponent(jsonReader);
+                    commandStreamInfoBuilder = commandStreamInfoBuilder.withResultDescription(resultStruct);
+                } else if ("resultEncoding".equals(prop)) {
+                    DataEncoding dataEncoding = sweJsonBindings.get().readEncoding(jsonReader);
+                    commandStreamInfoBuilder = commandStreamInfoBuilder.withResultEncoding(dataEncoding);
+                } else if ("system@id".equals(prop)) {
+                    commandStreamInfoBuilder = commandStreamInfoBuilder.withSystem(readSystemID(jsonReader));
+                } else if ("name".equals(prop)) {
+                    name = jsonReader.nextString();
+                    commandStreamInfoBuilder = commandStreamInfoBuilder.withName(name);
+                } else if ("description".equals(prop)) {
+                    commandStreamInfoBuilder = commandStreamInfoBuilder.withDescription(jsonReader.nextString());
+                } else if ("validTime".equals(prop)) {
+                    commandStreamInfoBuilder = commandStreamInfoBuilder.withValidTime(readTimeExtent(jsonReader));
+                } else {
+                    jsonReader.skipValue();
+                }
+            }
+            jsonReader.endObject();
+        } catch (IOException | IllegalStateException e) {
+            throw new IOException(e.getMessage());
+        }
+
+        return commandStreamInfoBuilder.build();
+    }
+
+    public static String writeICommandStreamInfoToJson(ICommandStreamInfo commandStreamInfo) throws IOException {
+        try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
+            try (var osw = new OutputStreamWriter(os, StandardCharsets.UTF_8)) {
+                try (JsonWriter jsonWriter = new JsonWriter(osw)) {
+                    jsonWriter.beginObject();
+                    jsonWriter.setLenient(true);
+                    jsonWriter.setSerializeNulls(false);
+                    jsonWriter.setIndent("  ");
+                    // start writing
+                    jsonWriter.name("name").value(commandStreamInfo.getName());
+                    jsonWriter.name("controlInputName").value(commandStreamInfo.getControlInputName());
+
+                    if (commandStreamInfo.getSystemID() != null) {
+                        SerializerUtils.writeSystemID(jsonWriter, "system@id", commandStreamInfo.getSystemID());
+                    }
+                    if(commandStreamInfo.getValidTime() != null) {
+                        SerializerUtils.writeTimeExtent(jsonWriter,"validTime",commandStreamInfo.getValidTime());
+                    }
+                    if (!Strings.isNullOrEmpty(commandStreamInfo.getDescription())) {
+                        jsonWriter.name("description").value(commandStreamInfo.getDescription());
+                    }
+
+                    if (commandStreamInfo.getResultEncoding() != null) {
+                        jsonWriter.name("resultEncoding");
+                        sweJsonBindings.get().writeAbstractEncoding(jsonWriter, commandStreamInfo.getResultEncoding());
+                    }
+
+                    if (commandStreamInfo.getResultStructure() != null) {
+                        jsonWriter.name("resultSchema");
+                        sweJsonBindings.get().writeDataComponent(jsonWriter, commandStreamInfo.getResultStructure(), false, commandStreamInfo.getResultStructure().getName());
+                    }
+
+                    if (commandStreamInfo.getRecordEncoding() != null) {
+                        jsonWriter.name("recordEncoding");
+                        sweJsonBindings.get().writeAbstractEncoding(jsonWriter, commandStreamInfo.getRecordEncoding());
+                    }
+
+                    jsonWriter.name("recordSchema");
+                    sweJsonBindings.get().writeDataComponent(jsonWriter, commandStreamInfo.getRecordStructure(), false, commandStreamInfo.getRecordStructure().getName());
+                    jsonWriter.endObject();
+                    jsonWriter.flush();
+                    return os.toString();
+                } catch (Exception e) {
+                    throw new IOException("Error writing SWE Common record structure", e);
+                }
+            }
+        }
+    }
+
+    protected static void writeICommandResult(JsonWriter jsonWriter, ICommandResult commandResult) throws IOException {
+        writeICommandResult(jsonWriter, commandResult, null);
+    }
+
+    protected static void writeICommandResult(JsonWriter jsonWriter, ICommandResult commandResult, ICommandStreamInfo commandStreamInfo) throws IOException {
+        jsonWriter.beginObject();
+
+        if (commandResult.getDataStreamIDs() != null) {
+            jsonWriter.name("datastreamRefs");
+            jsonWriter.beginArray();
+            for (var dsId: commandResult.getDataStreamIDs()) {
+                jsonWriter.beginObject();
+                writeBigId(jsonWriter, "datastream@id", dsId);
+                jsonWriter.endObject();
+            }
+            jsonWriter.endArray();
+        }
+
+        if (commandResult.getObservationIDs() != null) {
+            jsonWriter.name("observationRefs");
+            jsonWriter.beginArray();
+            for (var obsId: commandResult.getObservationIDs()) {
+                jsonWriter.beginObject();
+                writeBigId(jsonWriter, "observation@id", obsId);
+                jsonWriter.endObject();
+            }
+            jsonWriter.endArray();
+        }
+
+        if (commandResult.getInlineRecords() != null && commandStreamInfo != null) {
+            jsonWriter.name("inlineRecords");
+            jsonWriter.beginArray();
+            for (var inlineRecord: commandResult.getInlineRecords()) {
+                jsonWriter.jsonValue(writeDataBlockToJson(commandStreamInfo.getResultStructure(), commandStreamInfo.getResultEncoding(), inlineRecord));
+            }
+            jsonWriter.endArray();
+        }
+
+        jsonWriter.endObject();
+    }
+
+    public static String writeICommandResultJson(ICommandResult commandResult, ICommandStreamInfo csInfo) throws IOException {
+        try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
+            try (var osw = new OutputStreamWriter(os, StandardCharsets.UTF_8)) {
+                try (JsonWriter jsonWriter = new JsonWriter(osw)) {
+                    writeICommandResult(jsonWriter, commandResult, csInfo);
+                    jsonWriter.flush();
+                    return os.toString();
+                }
+            }
+        } catch (Exception e) {
+            throw new IOException("Error writing ICommandResult", e);
+        }
+    }
+
+    public static String writeICommandResultJson(ICommandResult commandResult) throws IOException {
+        return writeICommandResultJson(commandResult, null);
+    }
+
+    protected static ICommandResult readICommandResult(JsonReader jsonReader, ICommandStreamInfo csInfo) throws IOException {
+        List<BigId> dataStreamIds = null;
+        List<BigId> obsIds = null;
+        List<DataBlock> inlineRecords = null;
+
+        jsonReader.beginObject();
+        while (jsonReader.hasNext()) {
+            switch (jsonReader.nextName()) {
+                case "datastreamRefs":
+                    dataStreamIds = new ArrayList<>();
+                    jsonReader.beginArray();
+                    while(jsonReader.hasNext()) {
+                        jsonReader.beginObject();
+                        jsonReader.nextName();
+                        dataStreamIds.add(readBigId(jsonReader));
+                        jsonReader.endObject();
+                    }
+                    jsonReader.endArray();
+                    break;
+                case "observationRefs":
+                    obsIds = new ArrayList<>();
+                    jsonReader.beginArray();
+                    while (jsonReader.hasNext()) {
+                        jsonReader.beginObject();
+                        jsonReader.nextName();
+                        obsIds.add(readBigId(jsonReader));
+                        jsonReader.endObject();
+                    }
+                    jsonReader.endArray();
+                    break;
+                case "inlineRecords":
+                    if (csInfo == null) {
+                        jsonReader.skipValue();
+                        break;
+                    }
+                    JsonDataParserGson parser = new JsonDataParserGson(jsonReader);
+                    inlineRecords = new ArrayList<>();
+                    jsonReader.beginArray();
+                    while (jsonReader.hasNext()) {
+                        parser.setDataComponents(csInfo.getResultStructure());
+                        inlineRecords.add(parser.parseNextBlock());
+                    }
+                    jsonReader.endArray();
+            }
+        }
+        jsonReader.endObject();
+
+        if (dataStreamIds != null && !dataStreamIds.isEmpty()) {
+            return CommandResult.withDatastreams(dataStreamIds);
+        } else if (obsIds != null && !obsIds.isEmpty()) {
+            return CommandResult.withObservations(obsIds);
+        } else if (inlineRecords != null && !inlineRecords.isEmpty()) {
+            return CommandResult.withData(inlineRecords);
+        }
+        return null;
+    }
+
+    public static ICommandResult readICommandResultJson(String json,  ICommandStreamInfo csInfo) throws IOException {
+        StringReader stringReader = new StringReader(json);
+        JsonReader jsonReader = new JsonReader(stringReader);
+        return readICommandResult(jsonReader, csInfo);
+    }
+
+    public static ICommandResult readICommandResultJson(String json) throws IOException {
+        return readICommandResultJson(json, null);
+    }
+
+    protected static void writeBigId(JsonWriter jsonWriter, String nodeName, BigId bigId) throws IOException {
+        if(nodeName != null) {
+            jsonWriter.name(nodeName);
+        }
+        jsonWriter.beginObject();
+        jsonWriter.name("scope").value(bigId.getScope());
+        jsonWriter.name("id").value(bigId.getIdAsLong());
+        jsonWriter.endObject();
+    }
+
+    protected static void writeSystemID(JsonWriter jsonWriter, String nodeName, FeatureId systemId) throws IOException {
+        jsonWriter.name(nodeName);
+        jsonWriter.beginObject();
+        jsonWriter.name("uniqueID").value(systemId.getUniqueID());
+        writeBigId(jsonWriter, "internalID", systemId.getInternalID());
+        jsonWriter.endObject();
+    }
+
+    protected static BigId readBigId(JsonReader jsonReader) throws IOException {
+        long id = 0L;
+        int scope = 0;
+        jsonReader.beginObject();
+        while (jsonReader.hasNext()) {
+            switch (jsonReader.nextName()) {
+                case "scope":
+                    scope = jsonReader.nextInt();
+                    break;
+                case "id":
+                    id = jsonReader.nextLong();
+                    break;
+            }
+        }
+        jsonReader.endObject();
+        return BigId.fromLong(scope, id);
+    }
+
+    protected static FeatureId readSystemID(JsonReader jsonReader) throws IOException {
+        BigId internalID = null;
+        String uniqueID = null;
+        jsonReader.beginObject();
+        while (jsonReader.hasNext()) {
+            switch (jsonReader.nextName()) {
+                case "uniqueID":
+                    uniqueID = jsonReader.nextString();
+                    break;
+                case "internalID":
+                    internalID = readBigId(jsonReader);
+                    break;
+            }
+        }
+
+        jsonReader.endObject();
+        return new FeatureId(internalID, uniqueID);
+    }
+
+    public static String writeTimeExtent(TimeExtent timeExtent) throws IOException {
+
+        try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
+            try (var osw = new OutputStreamWriter(os, StandardCharsets.UTF_8)) {
+                try (JsonWriter jsonWriter = new JsonWriter(osw)) {
+                    jsonWriter.beginObject();
+                    jsonWriter.setLenient(true);
+                    jsonWriter.setSerializeNulls(false);
+                    jsonWriter.setIndent("  ");
+
+                    if(timeExtent.beginsNow()) {
+                        jsonWriter.name("begin").value("-infinity");
+                        jsonWriter.name("end").value(PostgisUtils.writeInstantToString(timeExtent.end(), false));
+                    } else if(timeExtent.endsNow()) {
+                        jsonWriter.name("begin").value(PostgisUtils.writeInstantToString(timeExtent.begin(), false));
+                        jsonWriter.name("end").value("infinity");
+                    } else  {
+                        jsonWriter.name("begin").value(PostgisUtils.writeInstantToString(timeExtent.begin(), false));
+                        jsonWriter.name("end").value(PostgisUtils.writeInstantToString(timeExtent.end(), false));
+                    }
+
+                    jsonWriter.endObject();
+                    jsonWriter.flush();
+                    return os.toString();
+                }
+            }
+        }
+    }
+
+    public static void writeTimeExtent(JsonWriter jsonWriter, String nodeName, TimeExtent timeExtent) throws IOException {
+        jsonWriter.name(nodeName);
+        jsonWriter.beginObject();
+        if(timeExtent.beginsNow()) {
+            jsonWriter.name("begin").value("-infinity");
+            jsonWriter.name("end").value(getValidPGInstant(timeExtent.end()).toString());
+        } else if(timeExtent.endsNow()) {
+            jsonWriter.name("begin").value(getValidPGInstant(timeExtent.begin()).toString());
+            jsonWriter.name("end").value("infinity");
+        } else  {
+            jsonWriter.name("begin").value(getValidPGInstant(timeExtent.begin()).toString());
+            jsonWriter.name("end").value(getValidPGInstant(timeExtent.end()).toString());
+        }
+
+        jsonWriter.endObject();
+
+    }
+
+    private static String getTimeExtent(JsonReader jsonReader) throws IOException {
+        var timeExtentAsStr = jsonReader.nextString();
+        if(timeExtentAsStr.equalsIgnoreCase("infinity") ||
+                timeExtentAsStr.equalsIgnoreCase("-infinity")) {
+            return "now";
+        }
+        return timeExtentAsStr;
+    }
+    public static TimeExtent readTimeExtent(JsonReader jsonReader) throws IOException {
+        String begin = null;
+        String end = null;
+
+        jsonReader.beginObject();
+        while (jsonReader.hasNext()) {
+            switch (jsonReader.nextName()) {
+                case "begin": {
+                    begin = getTimeExtent(jsonReader);
+                    break;
+                }
+
+                case "end":
+                    end = getTimeExtent(jsonReader);
+                    break;
+            }
+        }
+        jsonReader.endObject();
+
+        // check special values
+        // beginsNow
+        if(begin.equalsIgnoreCase("now")) {
+            // begins Now
+            return TimeExtent.beginNow(getValidPGInstant(Instant.parse(end)));
+        } else if(end.equalsIgnoreCase("now")) {
+            return TimeExtent.endNow(getValidPGInstant(Instant.parse(begin)));
+        } else {
+            // if begin > now(), use beginAt()
+            Instant beginInstant = Instant.parse(begin);
+            if(beginInstant.isAfter(Instant.now())) {
+                return TimeExtent.beginAt(beginInstant);
+            } else {
+                Instant startInstant = Instant.parse(begin);
+                Instant endInstant = Instant.parse(end);
+
+                // Postgis has a limit, need to truncate the MAX value
+                if(startInstant.equals(MAX_INSTANT)) {
+                    startInstant = Instant.MAX;
+                } else if(startInstant.equals(MIN_INSTANT)) {
+                    startInstant = Instant.MIN;
+                }
+
+                if(endInstant.equals(MAX_INSTANT)) {
+                    endInstant = Instant.MAX;
+                } else if(endInstant.equals(MIN_INSTANT)) {
+                    endInstant = Instant.MIN;
+                }
+
+                return TimeExtent.period(startInstant, endInstant);
+            }
+        }
+    }
+
+    public static Instant getValidPGInstant(Instant a) {
+        if(a.getEpochSecond() > 0) {
+            return a.isBefore(MAX_INSTANT) ? a : MAX_INSTANT;
+        } else {
+            return a.isAfter(MIN_INSTANT) ? a : MIN_INSTANT;
+        }
+    }
+}

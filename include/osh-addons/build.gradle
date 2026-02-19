@@ -1,0 +1,80 @@
+plugins {
+  id "biz.aQute.bnd" version "6.1.0" apply false
+}
+
+apply from: gradle.oshCoreDir + '/common.gradle'
+version = oshCoreVersion
+description = 'OSH Add-ons'
+
+
+subprojects {
+  version = oshCoreVersion
+  
+  // inject all repositories from included builds if any
+  repositories.addAll(rootProject.repositories)
+
+  // add project dependency to proper configuration depending on version
+  // this is used to build different zip distributions
+  afterEvaluate { p ->
+    rootProject.dependencies {
+      def dep = p.version.endsWith('SNAPSHOT') ? dev(p) : stable(p)
+      dep.exclude group: 'org.sensorhub'
+      dep.exclude group: 'org.vast.opengis'
+    }
+    
+    // publish to repo
+    task publishBundle(type:Exec) {
+      def bundleFile = osgi.outputs.files.singleFile
+      //commandLine 'curl', '-s', '-X', 'POST', '-H', """artifactUrl: file://${bundleFile}""", 'http://localhost:8181/cave/repository/api/repositories/osh-addons/artifact'
+      commandLine 'kubectl', 'cp', "${bundleFile}", 'osh-addons-69497bf779-4q65x:/opt/osh-node/data/addons'
+    }
+  }
+
+  /*// publish to maven repo
+  publishing {
+    repositories {
+      maven {
+        name = 'GitHubPackages'
+        url = 'https://maven.pkg.github.com/opensensorhub/osh-addons'
+        credentials {
+          username = ''
+          password = ''
+        }
+      }
+    }
+  }*/
+}
+
+// create one configuration for each distribution
+configurations {
+  stable
+  dev
+}
+
+
+// task to generate OSGi bundle index
+task osgiIndex(type: aQute.bnd.gradle.Index) {
+  //repositoryName 'OpenSensorHub Bundle Repository'
+  destinationDirectory = layout.buildDirectory.dir('osgi')
+  //base = '.'//'https://repo.opensensorhub.org/'
+  gzip = false
+  bundles = fileTree('.') {
+    include '**/build/libs/*bundle.jar'
+  }
+}
+
+
+task osgiIndexOnline(type: Copy) {
+  dependsOn osgiIndex
+  from "$buildDir/osgi/index.xml"
+  into "$buildDir/osgi"
+  rename 'index.xml','index_online.xml'
+  filter { line -> line.replaceAll('value=".*/build/libs/', 'value="') }
+  doLast {
+    exec {
+      commandLine 'kubectl', 'cp', "$buildDir/osgi/index_online.xml", 'osh-addons-69497bf779-4q65x:/opt/osh-node/data/addons/index.xml'
+    }
+  }
+}
+
+apply from: gradle.oshCoreDir + '/release.gradle'

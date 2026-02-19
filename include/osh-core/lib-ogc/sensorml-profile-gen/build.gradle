@@ -1,0 +1,25 @@
+group = 'org.vast.opengis'
+description = 'SensorML Profile Generator'
+
+dependencies {
+  api project(':sensorml-core')
+}
+
+// add info to OSGI manifest
+jar {
+  manifest {
+    attributes('Bundle-Vendor': 'Sensia Software LLC')
+  }
+}
+
+// add info to maven pom
+ext.pom >>= {
+  developers {
+    developer {
+      id 'alexrobin'
+      name 'Alex Robin'
+      organization 'Sensia Software LLC'
+      organizationUrl 'http://www.sensiasoftware.com' 
+    }
+  } 
+}

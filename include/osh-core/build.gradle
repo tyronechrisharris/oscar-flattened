@@ -1,0 +1,94 @@
+apply from: 'common.gradle'
+apply from: 'release.gradle'
+
+description = 'OSH Core Modules'
+
+
+allprojects  {
+  version = oshCoreVersion
+  
+  // skip OSGI task on SWE library projects
+  if (project.projectDir.getAbsolutePath().contains("lib-ogc")) {
+    project.osgi.enabled = false
+  }
+}
+
+
+// dependencies for inclusion in distribution
+dependencies {
+  project.subprojects.each {
+    p -> implementation p
+  }
+}
+
+distributions {
+  main {
+    distributionBaseName = 'osh-core'
+    contents {
+      from 'dist/main'
+      into('lib') {
+        from project.configurations.runtimeClasspath
+      } 
+    }
+  }
+  
+  osgi {
+    distributionBaseName = 'osh-core-osgi'
+    contents {
+      from 'dist/osgi'
+      into('lib') {
+        from project(":sensorhub-core-osgi").jar.outputs,
+             project(":sensorhub-core-osgi").configurations.runtimeClasspath
+      }
+      into('bundles') {
+        from 'sensorhub-core-osgi/lib'
+        from {
+          project.subprojects.collect {
+            p -> p.osgi.outputs
+          }
+        }
+      }
+    }
+  }
+}
+
+
+// task to generate aggregated javadocs
+Set<Project> javadocProjects = [':swe-common-core', ':swe-common-om', ':sensorml-core', ':sensorhub-core']
+task allJavadoc(type: Javadoc) {
+  dependsOn build
+  source javadocProjects.collect {name -> project(name).sourceSets.main.allJava}
+  include 'org/sensorhub/api/**',
+          'org/sensorhub/impl/module/ModuleRegistry.java',
+          'net/opengis/**',
+          'org/vast/**'
+  classpath = files(configurations.runtimeClasspath)
+  destinationDir = file("${buildDir}/docs/javadoc")
+  title = "OpenSensorHub ${version} API"
+  options.addBooleanOption('-frames', true)
+}
+
+
+// task to publish javadocs to GitHub pages (osh-docs)
+task releaseJavadoc {
+  doLast {
+    println '> Copying Javadoc to GitHub Pages'
+    
+    def ghPagesDir = "$rootDir/../osh-docs/site/"
+    if (!new File(ghPagesDir).exists())
+      throw new GradleException('osh-docs github pages repo was not found locally')
+      
+    // copy apidocs to osh-docs site repo
+    def javaDocRepoDir = "apidocs/v" + version
+    def javadocDir = ghPagesDir + javaDocRepoDir
+    mkdir javadocDir
+    copy {
+      into javadocDir
+      from ("${buildDir}/docs/javadoc") {
+        include '**/*'
+      }
+    }
+  }
+}
+releaseJavadoc.dependsOn allJavadoc
+release.dependsOn releaseJavadoc

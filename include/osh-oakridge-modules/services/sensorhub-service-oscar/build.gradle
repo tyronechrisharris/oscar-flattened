@@ -1,0 +1,47 @@
+description = 'OSCAR Service Module'
+ext.details = 'Provides necessary configuration and performs specific operations for OSCAR'
+version = '1.1.0'
+
+dependencies {
+    implementation 'org.sensorhub:sensorhub-core:' + oshCoreVersion
+
+    implementation project(':sensorhub-utils-rad')
+    implementation project(':sensorhub-service-bucket')
+
+    implementation project(':sensorhub-system-lane') // Lane for loading via spreadsheet
+    implementation project(':sensorhub-service-bucket') // service for file system
+    implementation("jfree:jfreechart:1.0.13") // charts
+    implementation("com.itextpdf:itext7-core:9.3.0") //pdfs
+
+    embeddedApi 'org.bytedeco:ffmpeg-platform:7.1-1.5.11'
+    implementation project(':sensorhub-driver-ffmpeg')
+
+    testImplementation 'org.sensorhub:sensorhub-datastore-h2:' + oshCoreVersion
+    testImplementation 'org.sensorhub:sensorhub-service-consys:' + oshCoreVersion
+}
+
+// add info to OSGi manifest
+osgi {
+    manifest {
+        attributes('Bundle-Vendor': 'Botts Innovative Research, Inc.')
+        attributes('Bundle-Activator': 'com.botts.impl.service.oscar.Activator')
+    }
+}
+
+// add info to maven pom
+ext.pom >>= {
+    developers {
+        developer {
+            id 'earocorn'
+            name 'Alex Almanza'
+            organization 'Botts Innovative Research, Inc.'
+            organizationUrl 'http://www.botts-inc.com'
+        }
+        developer {
+            id 'kalynstricklin'
+            name 'Kalyn Stricklin'
+            organization 'Botts Innovative Research, Inc.'
+            organizationUrl 'http://www.botts-inc.com'
+        }
+    }
+}

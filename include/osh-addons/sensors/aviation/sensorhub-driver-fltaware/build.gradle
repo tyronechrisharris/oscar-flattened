@@ -1,0 +1,30 @@
+description = 'Flight Aware Adaptor'
+ext.details = 'Flight Aware flight plans and real-time position provider'
+version = '0.8.1'
+
+dependencies {
+  implementation 'org.sensorhub:sensorhub-core:' + oshCoreVersion
+  implementation project(':sensorhub-utils-aero')
+  embeddedImpl 'org.apache.httpcomponents:httpclient:4.5.13'
+  embeddedImpl 'com.j2html:j2html:1.5.0'
+}
+
+// add info to OSGi manifest
+osgi {
+  manifest {
+    attributes('Bundle-Vendor': 'Botts Innovative Research Inc.')
+    attributes('Bundle-Activator': 'org.sensorhub.impl.sensor.flightAware.Activator')
+  }
+}
+
+// add info to maven pom
+ext.pom >>= {
+  developers {
+    developer {
+      id 'TheRestOfMe'
+      name 'Tony Cook'
+      organization 'Botts Innovative Research Inc.'
+      organizationUrl 'http://www.botts-inc.com' 
+    }
+  }
+}

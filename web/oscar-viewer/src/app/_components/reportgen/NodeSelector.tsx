@@ -1,0 +1,73 @@
+"use client";
+
+import {FormControl, InputLabel, MenuItem, Select, SelectChangeEvent} from '@mui/material';
+import {useState} from "react";
+import {INode} from "@/lib/data/osh/Node";
+import {useSelector} from "react-redux";
+import {RootState} from "@/lib/state/Store";
+import {selectNodes} from "@/lib/state/OSHSlice";
+
+
+export default function NodeSelect(props: {
+    onSelect: (value: INode) => void,
+    node: string
+}) {
+
+    const nodes = useSelector((state: RootState) => selectNodes(state));
+
+    const handleChange = (event: SelectChangeEvent) => {
+        const val = event.target.value;
+
+        const selectedNode = nodes.find((node: INode) => node.id == val);
+        if (selectedNode) {
+            props.onSelect(selectedNode.id)
+        }
+
+    };
+
+    return (
+        <FormControl size="small" fullWidth>
+            <InputLabel id="label">Node Selector</InputLabel>
+            <Select
+                variant="outlined"
+                id="label"
+                label="Node Selector"
+                value= {props.node || ""}
+                onChange={handleChange}
+                MenuProps={{
+                    MenuListProps: {
+                        style: {
+                            maxHeight: 300
+                        }
+                    }
+                }}
+                autoWidth
+                style={{minWidth: "8em"}}
+                sx={{
+                    color: "text.primary",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                        borderColor: "inherit",
+                    },
+                    "&.MuiOutlinedInput-notchedOutline": {border: 1},
+                    "&.MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline":
+                        {
+                            border: 2,
+                            borderRadius: "10px"
+                        },
+                    "&.MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline":
+                        {
+                            border: 2,
+                        },
+                }}
+            >
+                {
+                    nodes.map((item: INode) => (
+                        <MenuItem key={item.id} value={item.id}>
+                            {item.name}
+                        </MenuItem>
+                    ))
+                }
+            </Select>
+        </FormControl>
+    );
+}

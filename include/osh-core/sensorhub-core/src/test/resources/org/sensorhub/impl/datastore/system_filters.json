@@ -1,0 +1,64 @@
+[
+    {
+        "includeMembers": false,
+        "validTime": {
+            "during": [
+              "2020-10-08T15:15:56Z",
+              "2020-10-08T16:15:56Z"
+            ]
+        },
+        "location": {
+            "within_distance": {
+                "center": {
+                    "type": "Point",
+                    "coordinates": [10.0, 23.0]
+                },
+                "distance": 23.5
+            }
+        },
+        "predicate": "obs => obs.result.temp > 27.5"
+    },
+    {
+        "includeMembers": false,
+        "validTime": {
+            "indeterminate": "latest"
+        },
+        "internalIDs": ["4e5ttbr2r220c", "s12on5el3aca2", "ujgnh3d8866e6"],
+        "uniqueIDs": [
+            "urn:osh:sim:gps",
+            "urn:osh:temp*",
+            "urn:sensia:test:*"
+        ],
+        "withDatastreams": {
+            "observedProperties": ["http://blabla/air_temperature"]
+        }
+    },
+    {
+        "includeMembers": false,
+        "validTime": {
+            "indeterminate": "current"
+        },
+        "withParents": {
+            "includeMembers": false,
+            "uniqueIDs": [
+                "urn:osh:group:001"
+            ]
+        },
+        "fullText": {
+            "keywords": ["word1", "word2"]
+        }
+    },
+    {
+        "includeMembers": false,
+        "validTime": {
+            "indeterminate": "current"
+        },
+        "withParents": {
+            "includeMembers": false,
+            "internalIDs": ["eef0"]
+        },
+        "fullText": {
+            "keywords": []
+        }
+    }
+]

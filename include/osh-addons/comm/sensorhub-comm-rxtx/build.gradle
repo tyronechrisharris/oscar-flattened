@@ -1,0 +1,25 @@
+description = 'RXTX Serial Comm Provider'
+ext.details = 'Serial communication provider based on RXTX library'
+
+def thisProjectDir = projectDir
+rootProject.allprojects {
+  repositories {
+    maven { url "file:///$thisProjectDir/libs" }
+  }
+}
+
+dependencies {
+  implementation 'org.sensorhub:sensorhub-core:' + oshCoreVersion
+  embeddedImpl 'gnu.io:rxtx:2.2-pre1'
+}
+
+osgi {
+  manifest {
+    attributes('Bundle-Vendor': 'Sensia Software LLC')
+    attributes('Bundle-Activator': 'org.sensorhub.impl.comm.rxtx.Activator')
+  }
+}
+
+test {
+  exclude '**/TestRxtxSerialCommProvider.class'
+}

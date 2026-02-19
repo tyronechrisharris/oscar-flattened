@@ -1,0 +1,28 @@
+description = 'Navigation Database'
+ext.details = 'Adaptor for aeronautical navigation database provider in ARINC 424 format'
+version = '0.6'
+
+dependencies {
+  implementation 'org.sensorhub:sensorhub-core:' + oshCoreVersion
+  implementation project(':sensorhub-utils-aero')
+}
+
+// add info to OSGi manifest
+osgi {
+  manifest {
+    attributes('Bundle-Vendor': 'Botts Innovative Research Inc.')
+    attributes('Bundle-Activator': 'org.sensorhub.impl.sensor.navDb.Activator')
+  }
+}
+
+// add info to maven pom
+ext.pom >>= {
+  developers {
+    developer {
+      id 'TheRestOfMe'
+      name 'Tony Cook'
+      organization 'Botts Innovative Research Inc.'
+      organizationUrl 'http://www.botts-inc.com' 
+    }
+  }
+}

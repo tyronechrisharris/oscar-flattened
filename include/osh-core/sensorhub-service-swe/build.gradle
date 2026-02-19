@@ -1,0 +1,43 @@
+description = 'OSH SWE Services'
+ext.details = 'Implementation of OGC SWE standard interfaces as OSH services and virtual sensors'
+
+dependencies {
+  implementation project(':sensorhub-core')
+  
+  embeddedApi(project(':ogc-services-sos')) {
+    // exclude from embedded jars, already provided by sensorhub-core
+    exclude group: 'org.vast.opengis', module: 'swe-common-om' 
+    exclude group: 'org.vast.opengis', module: 'sensorml-core'
+    exclude group: 'javax.servlet', module: 'javax.servlet-api'
+  }
+  embeddedApi(project(':ogc-services-sps')) {
+    // exclude from embedded jars, already provided by sensorhub-core
+    exclude group: 'org.vast.opengis', module: 'swe-common-om' 
+    exclude group: 'org.vast.opengis', module: 'sensorml-core'
+    exclude group: 'javax.servlet', module: 'javax.servlet-api'
+  }
+
+  testImplementation(testFixtures(project(':sensorhub-core')))
+  testImplementation project(':sensorhub-datastore-h2')
+  testImplementation 'commons-io:commons-io:1.3.2'
+}
+
+// add info to OSGI manifest
+osgi {
+  manifest {
+    attributes 'Bundle-Vendor': 'Sensia Software LLC'
+    attributes 'Bundle-Activator': 'org.sensorhub.impl.service.swe.Activator'
+  }
+}
+
+// add info to maven pom
+ext.pom >>= {
+  developers {
+    developer {
+      id 'alexrobin'
+      name 'Alex Robin'
+      organization 'Sensia Software LLC'
+      organizationUrl 'http://www.sensiasoftware.com' 
+    }
+  } 
+}

@@ -1,0 +1,40 @@
+description = 'PCA9685 PWM Servos Driver'
+ext.details = 'Driver for Adafruit PCA9685 16-channels PWM servo board'
+version = '0.1-SNAPSHOT'
+
+rootProject.allprojects {
+  repositories {
+    maven { url "https://raw.github.com/eurotech/kura_addons/mvn-repo" }
+  }
+}
+
+dependencies {
+  implementation 'org.sensorhub:sensorhub-core:' + oshCoreVersion
+  implementation project(':sensorhub-comm-dio')
+}
+
+// exclude tests requiring connection to the sensor
+// these have to be run manually
+test {
+  exclude '**/TestPwmServosDio.class'
+}
+
+// add info to OSGi manifest
+osgi {
+  manifest {
+    attributes('Bundle-Vendor': 'Sensia Software LLC')
+    attributes('Bundle-Activator': 'org.sensorhub.impl.actuator.pca9685.Activator')
+  }
+}
+
+// add info to maven pom
+ext.pom >>= {
+  developers {
+    developer {
+      id 'alexrobin'
+      name 'Alex Robin'
+      organization 'Sensia Software LLC'
+      organizationUrl 'http://www.sensiasoftware.com' 
+    }
+  }
+}

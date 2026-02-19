@@ -1,0 +1,27 @@
+description = 'Kryo Serialization'
+ext.details = 'Utility classes for serialization/deserialization/cloning of data model objects with Kryo'
+
+dependencies {
+  implementation project(':sensorhub-core')
+  embeddedApi 'com.esotericsoftware:kryo:5.5.0'
+  testImplementation(testFixtures(project(':sensorhub-core')))
+}
+
+// add info to OSGI manifest
+osgi {
+  manifest {
+    attributes 'Bundle-Vendor': 'Sensia Software LLC'
+  }
+}
+
+// add info to maven pom
+ext.pom >>= {
+  developers {
+    developer {
+      id 'alexrobin'
+      name 'Alex Robin'
+      organization 'Sensia Software LLC'
+      organizationUrl 'http://www.sensiasoftware.com' 
+    }
+  } 
+}

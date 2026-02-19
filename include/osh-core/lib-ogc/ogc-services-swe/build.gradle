@@ -1,0 +1,26 @@
+group = 'org.vast.opengis'
+description = 'OGC SWE Services Common'
+
+dependencies {
+  api project(':ogc-services-common')
+  api project(':sensorml-core')
+}
+
+// add info to OSGI manifest
+jar {
+  manifest {
+    attributes('Bundle-Vendor': 'Sensia Software LLC')
+  }
+}
+
+// add info to maven pom
+ext.pom >>= {
+  developers {
+    developer {
+      id 'alexrobin'
+      name 'Alex Robin'
+      organization 'Sensia Software LLC'
+      organizationUrl 'http://www.sensiasoft.com' 
+    }
+  } 
+}

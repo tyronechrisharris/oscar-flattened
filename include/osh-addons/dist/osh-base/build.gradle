@@ -1,0 +1,29 @@
+apply from: gradle.oshCoreDir + '/common.gradle'
+version = oshCoreVersion
+
+dependencies {
+  implementation 'org.sensorhub:sensorhub-core:' + oshCoreVersion
+  implementation 'org.sensorhub:sensorhub-datastore-h2:' + oshCoreVersion
+  implementation 'org.sensorhub:sensorhub-service-swe:' + oshCoreVersion
+  implementation 'org.sensorhub:sensorhub-service-sweapi:' + oshCoreVersion
+  implementation 'org.sensorhub:sensorhub-webui-core:' + oshCoreVersion
+  implementation 'org.sensorhub:sensorhub-driver-fakegps:[0.1,2.0)'
+  implementation 'org.sensorhub:sensorhub-driver-fakeweather:[0.1,2.0)'
+}
+
+distributions {
+  main {
+    distributionBaseName = 'osh-base-install'
+    contents {
+      from 'scripts'
+      from 'config'
+      from 'README.md'
+      into('web') {
+        from 'web'
+      }
+      into('lib') {
+        from project.configurations.runtimeClasspath
+      }
+    }
+  }
+}

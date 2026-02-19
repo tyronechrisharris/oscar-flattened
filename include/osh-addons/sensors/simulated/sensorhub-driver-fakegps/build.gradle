@@ -1,0 +1,33 @@
+description = 'Simulated GPS Sensor'
+ext.details = 'Demo sensor outputting simulated GPS data obtained using Google Directions API'
+version = '1.0.1'
+
+dependencies {
+  implementation 'org.sensorhub:sensorhub-core:' + oshCoreVersion
+}
+
+// exclude tests requiring an API key
+// these have to be run manually
+test {
+  exclude '**/TestFakeGpsDriver.class'
+}
+
+// add info to OSGi manifest
+osgi {
+  manifest {
+    attributes('Bundle-Vendor': 'Sensia Software LLC')
+    attributes('Bundle-Activator': 'org.sensorhub.impl.sensor.fakegps.Activator')
+  }
+}
+
+// add info to maven pom
+ext.pom >>= {
+  developers {
+    developer {
+      id 'alexrobin'
+      name 'Alex Robin'
+      organization 'Sensia Software LLC'
+      organizationUrl 'http://www.sensiasoftware.com' 
+    }
+  }
+}

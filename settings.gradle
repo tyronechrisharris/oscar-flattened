@@ -1,0 +1,121 @@
+rootProject.name = 'osh-ornl-node'
+gradle.ext.oshCoreDir = "$rootDir/include/osh-core"
+gradle.ext.oshAddonsDir = "$rootDir/include/osh-addons"
+gradle.ext.oshOakridgeModules = "$rootDir/include/osh-oakridge-modules"
+
+includeBuild gradle.oshCoreDir
+
+//include 'sensorhub-comm-rxtx'
+//project(':sensorhub-comm-rxtx').projectDir = "$gradle.oshAddonsDir/comm/sensorhub-comm-rxtx" as File
+
+//include 'sensorhub-driver-sony-vb600'
+//project(':sensorhub-driver-sony-vb600').projectDir = "$gradle.oshAddonsDir/sensors/video/sensorhub-driver-sony-vb600" as File
+
+include 'sensorhub-driver-ffmpeg'
+project(':sensorhub-driver-ffmpeg').projectDir = "$gradle.oshAddonsDir/sensors/video/sensorhub-driver-ffmpeg" as File
+
+include 'sensorhub-process-ffmpeg'
+project(':sensorhub-process-ffmpeg').projectDir = "$gradle.oshAddonsDir/processing/sensorhub-process-ffmpeg" as File
+
+include 'sensorhub-service-video'
+project(':sensorhub-service-video').projectDir = "$gradle.oshAddonsDir/services/sensorhub-service-video" as File
+
+include 'sensorhub-driver-videocam'
+project(':sensorhub-driver-videocam').projectDir = "$gradle.oshAddonsDir/sensors/video/sensorhub-driver-videocam" as File
+
+include 'sensorhub-driver-v4l'
+project(':sensorhub-driver-v4l').projectDir = "$gradle.oshAddonsDir/sensors/video/sensorhub-driver-v4l" as File
+
+include 'sensorhub-datastore-postgis'
+project(':sensorhub-datastore-postgis').projectDir = "$gradle.oshAddonsDir/persistence/sensorhub-datastore-postgis" as File
+
+include 'sensorhub-service-fileserver'
+project(':sensorhub-service-fileserver').projectDir = "$gradle.oshAddonsDir/services/sensorhub-service-fileserver" as File
+
+//include 'sensorhub-driver-openhab'
+//project(':sensorhub-driver-openhab').projectDir = "$gradle.oshAddonsDir/sensors/smarthome/sensorhub-driver-openhab" as File
+
+include 'sensorhub-driver-rtpcam'
+project(':sensorhub-driver-rtpcam').projectDir = "$gradle.oshAddonsDir/sensors/video/sensorhub-driver-rtpcam" as File
+
+//include 'sensorhub-driver-dahua'
+//project(':sensorhub-driver-dahua').projectDir = "$gradle.oshAddonsDir/sensors/video/sensorhub-driver-dahua" as File
+
+// !!WARNING!! If you need to use the Axis driver, you must ensure the driver has a non-vulnerable version of log4j
+//include 'sensorhub-driver-axis'
+//project(':sensorhub-driver-axis').projectDir = "$gradle.oshAddonsDir/sensors/video/sensorhub-driver-axis" as File
+
+//include 'sensorhub-driver-onvif'
+//project(':sensorhub-driver-onvif').projectDir = "$gradle.oshAddonsDir/sensors/video/sensorhub-driver-onvif" as File
+
+include 'sensorhub-service-mqtt-hivemq'
+project(':sensorhub-service-mqtt-hivemq').projectDir = "$gradle.oshAddonsDir/services/sensorhub-service-mqtt-hivemq" as File
+
+include 'sensorhub-service-consys-mqtt'
+project(':sensorhub-service-consys-mqtt').projectDir = "$gradle.oshAddonsDir/services/sensorhub-service-consys-mqtt" as File
+
+include 'sensorhub-comm-mqtt'
+project(':sensorhub-comm-mqtt').projectDir = "$gradle.oshAddonsDir/comm/sensorhub-comm-mqtt" as File
+
+include 'security-utils'
+project(':security-utils').projectDir = "$rootDir/security-utils" as File
+
+// include all folders with build.gradle as subprojects from osh-oakridge-modules
+FileTree subprojects = fileTree("$gradle.oshOakridgeModules/sensors").include('**/build.gradle')
+subprojects.files.each { File f ->
+    // To exclude a project use the following if by adding a new '&& !f.toString().contains('project-name')'
+    // To include a project using the following remove its corresponding '&& !f.toString().contains('project-name')'
+//    if (!f.toString().contains('rs350')) {
+        File projectFolder = f.parentFile
+        if (projectFolder != rootDir) {
+            String projectName = ':' + projectFolder.name
+            include projectName
+            project(projectName).projectDir = projectFolder
+        }
+//    }
+}
+
+FileTree tools_subprojects = fileTree("$rootDir/tools").include('**/build.gradle')
+tools_subprojects.files.each { File f ->
+    // To exclude a project use the following if by adding a new '&& !f.toString().contains('project-name')'
+    // To include a project using the following remove its corresponding '&& !f.toString().contains('project-name')'
+//    if (!f.toString().contains('rs350')) {
+    File projectFolder = f.parentFile
+    if (projectFolder != rootDir) {
+        String projectName = ':' + projectFolder.name
+        include projectName
+        project(projectName).projectDir = projectFolder
+    }
+//    }
+}
+
+
+FileTree process_submodules = fileTree("$gradle.oshOakridgeModules/processing").include('**/build.gradle')
+process_submodules.files.each { File f ->
+    File projectFolder = f.parentFile
+    if (projectFolder != rootDir) {
+        String projectName = ':' + projectFolder.name
+        include projectName
+        project(projectName).projectDir = projectFolder
+    }
+}
+
+FileTree service_submodules = fileTree("$gradle.oshOakridgeModules/services").include('**/build.gradle')
+service_submodules.files.each { File f ->
+    File projectFolder = f.parentFile
+    if (projectFolder != rootDir) {
+        String projectName = ':' + projectFolder.name
+        include projectName
+        project(projectName).projectDir = projectFolder
+    }
+}
+
+FileTree tools_submodules = fileTree("$gradle.oshOakridgeModules/tools").include('**/build.gradle')
+tools_submodules.files.each { File f ->
+    File projectFolder = f.parentFile
+    if (projectFolder != rootDir) {
+        String projectName = ':' + projectFolder.name
+        include projectName
+        project(projectName).projectDir = projectFolder
+    }
+}

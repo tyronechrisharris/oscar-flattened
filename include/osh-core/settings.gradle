@@ -1,0 +1,27 @@
+rootProject.name = 'osh-core'
+
+include 'swe-common-core'
+include 'swe-common-om'
+include 'sensorml-core'
+include 'ogc-services-common'
+include 'ogc-services-swe'
+include 'ogc-services-sos'
+include 'ogc-services-sps'
+include 'sensorhub-core'
+include 'sensorhub-core-osgi'
+include 'sensorhub-utils-kryo'
+include 'sensorhub-datastore-h2'
+include 'sensorhub-service-swe'
+include 'sensorhub-service-consys'
+include 'sensorhub-webui-core'
+include 'sensorhub-webui-widgetset'
+
+
+project(':swe-common-core').projectDir = "$rootDir/lib-ogc/swe-common-core" as File
+project(':swe-common-om').projectDir = "$rootDir/lib-ogc/swe-common-om" as File
+project(':sensorml-core').projectDir = "$rootDir/lib-ogc/sensorml-core" as File
+project(':ogc-services-common').projectDir = "$rootDir/lib-ogc/ogc-services-common" as File
+project(':ogc-services-swe').projectDir = "$rootDir/lib-ogc/ogc-services-swe" as File
+project(':ogc-services-sos').projectDir = "$rootDir/lib-ogc/ogc-services-sos" as File
+project(':ogc-services-sps').projectDir = "$rootDir/lib-ogc/ogc-services-sps" as File
+project(':sensorhub-webui-widgetset').projectDir = "$rootDir/sensorhub-webui-core/widgetset" as File

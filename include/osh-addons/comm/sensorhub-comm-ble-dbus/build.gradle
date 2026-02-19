@@ -1,0 +1,22 @@
+description = 'Bluetooth LE Comm Network (D-Bus)'
+ext.details = 'Bluetooth Smart (Low Energy) network adapter based on D-Bus (Linux only)'
+
+def thisProjectDir = projectDir
+rootProject.allprojects {
+  repositories {
+    maven { url "file:///$thisProjectDir/libs" }
+  }
+}
+
+dependencies {
+  implementation 'org.sensorhub:sensorhub-core:' + oshCoreVersion
+  api project(':sensorhub-comm-ble')
+  embeddedImpl 'org.freedesktop:dbus:2.8'
+}
+
+osgi {
+  manifest {
+    attributes('Bundle-Vendor': 'Sensia Software LLC')
+    attributes('Bundle-Activator': 'org.sensorhub.impl.comm.ble.dbus.Activator')
+  }
+}

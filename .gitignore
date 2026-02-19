@@ -1,0 +1,25 @@
+**/bin/
+**/target/
+**/build/
+**/.gradle/
+**/.DStore
+**/.DS_Store
+**/.settings
+**/.project
+**/.classpath
+**/.idea
+**/*.iml
+/storage/
+*.db
+*.dat
+hivemq-config/
+hivemq-data/
+*.env
+
+*.log
+
+# test bucket store
+oscar/
+files/
+
+dist/release/postgis/pgdata

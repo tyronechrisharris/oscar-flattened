@@ -1,0 +1,159 @@
+
+buildscript {
+    repositories {
+      mavenCentral()
+    }
+    dependencies {
+      classpath 'org.ajoberstar:gradle-git:1.6.0'
+      classpath 'org.sonarsource.scanner.gradle:sonarqube-gradle-plugin:2.2.1'
+      classpath 'org.kohsuke:github-api:1.132'
+    }
+}
+
+
+//apply plugin: org.sonarqube.gradle.SonarQubePlugin
+apply plugin: org.ajoberstar.gradle.git.base.GrgitPlugin
+
+
+/* Bintray was shutdown in Feb 2021 */ 
+/*subprojects {
+  afterEvaluate { project ->    
+    // only publish with bintray if credentials are configured 
+    // and project is not a SNAPSHOT
+    if (project.hasProperty("bintray_user") && !project.version.endsWith('SNAPSHOT')) { 
+      // bintray publishing options
+      bintray {
+        user = bintray_user
+        key = bintray_api_key
+    
+        publications = ['mavenJava']
+        dryRun = false // whether to run this as dry-run, without deploying
+        publish = true // whether version should be auto published after an upload    
+        override = true // whether to override version artifacts already published 
+       
+        pkg {
+            repo = 'osh'
+            name = rootProject.name
+            userOrg = 'sensiasoft'
+            if (rootProject.description != null)
+              desc = rootProject.description
+            websiteUrl = 'https://github.com/opensensorhub/' + rootProject.name
+            issueTrackerUrl = 'https://github.com/opensensorhub/' + rootProject.name + '/issues'
+            vcsUrl = 'git://github.com/opensensorhub/' + rootProject.name + '.git'
+            licenses = ['MPL-2.0']
+            labels = ['sensor', 'sensor hub', 'ogc', 'swe', 'iot']
+            publicDownloadNumbers = true          
+            version {
+              name = rootProject.version
+            }
+        }
+      }
+    }
+  }
+}*/
+
+
+// this task checks that release conditions are met
+task prerelease {
+  doLast {
+    println 'Current version is ' + version
+    println 'Current HEAD is ' + grgit.head().abbreviatedId
+  
+    // check that we're on master branch
+    if (grgit.branch.current.name != 'master')
+      throw new GradleException('A release can only be done from the master branch. First merge your changes to master')
+  
+    // check that current version is not a snapshot
+    if (version.endsWith('SNAPSHOT'))
+      throw new GradleException('Cannot release a SNAPSHOT. Please update the project version number')
+
+    // check that we don't have any snapshot dependencies
+
+    // check that there is no existing tag with this version
+    // this ensures version has been incremented since last release
+    def tags = grgit.tag.list()
+    tags.each {
+      if (it.name == 'v' + version)
+        throw new GradleException('Version ' + version + ' has already been released (existing tag)')
+    }
+
+    // check for uncommited files
+    def status = grgit.status()
+    if (!status.isClean()) {
+      throw new GradleException('Local version has uncommited changes')
+    }
+  }
+}
+
+
+// this task creates a Git tag
+task releaseGit {  
+  doLast {
+    // tag release version (after successful build)
+    println '> Adding release tag for version ' + version
+    grgit.tag.add {
+      name = 'v' + version
+      message = 'Release of version ' + version
+    }
+   
+    // push new tag
+    println '> Pushing new tag to remote'
+    grgit.push(tags: true)
+  }
+}
+
+
+// this task creates a GitHub release
+import org.kohsuke.github.*
+task releaseGithub {
+  doLast {
+    println '> Publishing Release to GitHub'
+    
+    GitHub gh = GitHub.connect(github_user, github_token);
+    GHRepository repo = gh.getRepository("opensensorhub/" + project.name);
+    
+    // load release template
+    String text = ""
+    File templateFile = new File(rootDir, 'release-text.md')
+    if (templateFile.exists()) { 
+      text = templateFile.text;
+    }
+    
+    // find version milestone
+    def milestone = repo.listMilestones(GHIssueState.ALL).find {
+      it.title == 'v' + project.version
+    }
+    if (milestone == null) {
+       println 'No milestone found for release version ' + project.version
+    }
+    else {
+      // append issues fixed for this milestone
+      def issues = repo.getIssues(GHIssueState.CLOSED, milestone)
+      if (!issues.isEmpty())
+        text += "Resolved Issues:\n\n"
+      issues.each {
+        text += "  * **#" + it.number + "** " + it.title + "\n"
+      }
+      println text
+    }
+    
+    // publish new release
+    GHReleaseBuilder builder = repo.createRelease('v' + project.version);
+    builder.name(project.name + " v" + project.version)
+           .draft(true)
+           .body(text)
+           .create()
+  }
+}
+
+
+// release subtasks ordering
+// prerelease > build > releaseGit > bintrayUpload > releaseGithub
+task release
+build.shouldRunAfter prerelease
+releaseGit.dependsOn prerelease
+releaseGit.dependsOn build
+/*bintrayUpload.dependsOn releaseGit*/
+releaseGithub.dependsOn releaseGit
+release.dependsOn releaseGithub
+

@@ -1,0 +1,7 @@
+.moduledata/
+**/*.dat
+**/*.bak.*
+.bundle-cache/
+hivemq-config/
+hivemq-data/
+/bundles/

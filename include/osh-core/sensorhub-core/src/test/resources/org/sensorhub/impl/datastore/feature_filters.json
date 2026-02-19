@@ -1,0 +1,60 @@
+[    
+    {
+        "includeMembers": false,
+        "internalIDs": ["7ab0", "ak12se8", "gb46hndo5ocqc"]
+    },
+    {
+        "includeMembers": false,
+        "uniqueIDs": [
+            "urn:osh:features:F001",
+            "urn:osh:features:F002"
+        ]
+    },
+    {
+        "includeMembers": false,
+        "withParents": {
+            "includeMembers": false,
+            "internalIDs": ["eef0"]
+        },
+        "fullText": {
+            "keywords": []
+        }
+    },
+    {
+        "includeMembers": false,
+        "withParents": {
+            "includeMembers": false,
+            "fullText": {
+                "keywords": ["building", "room"]
+            },
+            "location": {
+                "within": {
+                    "roi": {
+                        "type": "Polygon",
+                        "coordinates": [
+                            [12.3,78.6],[56.9,45.12],[12.3,89.2],[12.3,78.6]
+                        ]
+                    }
+                }
+            }
+        }
+    },
+    {
+        "includeMembers": false,
+        "internalIDs": ["fg40"],
+        "validTime": {
+            "during": [
+                "1970-01-01Z",
+                "2100-12-31Z"
+            ]
+        },
+        "location": {
+            "intersects": {
+                "roi": {
+                    "type": "LineString",
+                    "coordinates": [[12.3,78.6],[56.9,45.12],[12.3,89.2]]
+                }
+            }
+        }
+    }
+]

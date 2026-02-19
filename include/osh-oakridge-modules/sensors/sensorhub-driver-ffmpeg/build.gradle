@@ -1,0 +1,53 @@
+description = 'FFmpeg Video Driver'
+ext.details = "Driver for connecting to FFmpeg capable video streams"
+version = '2.1.0'
+
+// To build in entire java cv platform of projects use
+//    implementation('org.bytedeco:javacv-platform:1.5.2')
+dependencies {
+    implementation 'org.sensorhub:sensorhub-core:' + oshCoreVersion
+    implementation project(':sensorhub-driver-videocam')
+    implementation project(':sensorhub-service-bucket')
+    //implementation project(':sensorhub-service-oscar')
+    implementation project(':sensorhub-process-ffmpeg')
+    testImplementation('junit:junit:4.13.1')
+    testImplementation('org.jcodec:jcodec-javase:0.2.5')
+}
+
+// exclude tests requiring connection to the sensor
+// these have to be run manually
+//      If tests are to be excluded list them here as follows
+//          exclude '**/TestNameClass.class'
+test {
+    useJUnit()
+}
+
+// add info to OSGi manifest
+osgi {
+    manifest {
+        attributes('Bundle-Vendor': 'Botts Innovative Research, Inc.')
+        attributes('Bundle-Activator': 'org.sensorhub.impl.sensor.ffmpeg.Activator')
+    }
+}
+
+tasks.register('copyReadme', Copy) {
+    from "${projectDir}/README.md"
+    into "${projectDir}/src/main/resources/org/sensorhub/impl/sensor/ffmpeg/config"
+    onlyIf { file("${projectDir}/README.md").exists() }
+}
+
+processResources {
+    dependsOn copyReadme
+}
+
+// add info to maven pom
+ext.pom >>= {
+    developers {
+        developer {
+            id 'drewbotts'
+            name 'Drew Botts'
+            organization 'Botts Innovative Research, Inc.'
+            organizationUrl 'http://www.botts-inc.com'
+        }
+    }
+}

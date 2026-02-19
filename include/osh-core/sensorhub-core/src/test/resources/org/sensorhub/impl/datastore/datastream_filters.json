@@ -1,0 +1,26 @@
+[
+    {
+        "validTime": {
+            "indeterminate": "current"
+        },
+        "outputNames": ["press", "temp"],
+        "withSystems": {
+            "includeMembers": false,
+            "internalIDs": ["4e5ttbr2r220c", "ak12se8"]
+        }
+    },
+    {
+        "validTime": {
+            "indeterminate": "current"
+        },
+        "internalIDs": ["45e0", "sk12o", "ttbr2r22"]
+    },
+    {
+        "validTime": {
+            "indeterminate": "current"
+        },
+        "observedProperties": [
+            "urn1", "urn2", "urn3"
+        ]
+    }
+]

@@ -1,0 +1,21 @@
+[
+  {
+    "objClass": "org.sensorhub.impl.service.HttpServerConfig",
+    "id": "6ca9c8a8-9768-4b60-9554-a8d277bf6b3f",
+    "name": "HTTP Server",
+    "moduleClass": "org.sensorhub.impl.service.HttpServer",
+    "httpPort": 8181,
+    "servletsRootUrl": "/sensorhub",
+    "staticDocsRootDir": "web",
+    "autoStart": true
+  },
+  {
+    "objClass": "org.sensorhub.ui.AdminUIConfig",
+    "id": "7219eb9f-b591-4c2c-9ad9-4b63a29a1c4a",
+    "moduleClass": "org.sensorhub.ui.AdminUIModule",
+    "bundleRepoUrls": [
+      "https://cloud.georobotix.io/addons/index.xml"
+    ],
+    "autoStart": true
+  }
+]

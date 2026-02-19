@@ -1,0 +1,2 @@
+org.sensorhub.impl.service.consys.ConSysApiServiceDescriptor
+org.sensorhub.impl.service.consys.client.ConSysApiClientDescriptor

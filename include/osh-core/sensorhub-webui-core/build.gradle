@@ -1,0 +1,55 @@
+import java.nio.file.*;
+
+description = 'OSH Admin UI (Vaadin)'
+ext.details = 'Web based admin user interface for OSH'
+
+rootProject.allprojects {
+  //ext.vaadinVersion = '7.7.12'
+  ext.vaadinVersion = '8.14.3'
+  repositories {
+    maven {
+      name 'vaadin-addons'
+      url "https://maven.vaadin.com/vaadin-addons"
+    }
+  }
+}
+
+dependencies {
+  implementation project(':sensorhub-core')
+  implementation project(':sensorhub-service-swe')
+  implementation project(':sensorhub-service-consys')
+  embeddedImpl project(':sensorhub-webui-widgetset')
+  embeddedImpl 'com.vaadin:vaadin-server:' + vaadinVersion
+  embeddedImpl 'com.vaadin:vaadin-push:' + vaadinVersion  
+  compileOnly 'com.vaadin:vaadin-client:' + vaadinVersion
+  embeddedImpl 'com.vaadin:vaadin-client-compiled:' + vaadinVersion
+  embeddedImpl 'com.vaadin:vaadin-compatibility-server:' + vaadinVersion
+  compileOnly 'com.vaadin:vaadin-compatibility-client:' + vaadinVersion
+  embeddedImpl 'com.vaadin:vaadin-compatibility-client-compiled:' + vaadinVersion
+  embeddedImpl 'com.vaadin:vaadin-themes:' + vaadinVersion
+  
+  compileOnly 'org.osgi:org.osgi.core:5.0.0'
+  compileOnly 'org.apache.felix:org.apache.felix.bundlerepository:2.0.10'
+
+  testImplementation(testFixtures(project(':sensorhub-core')))
+}
+
+// add info to OSGI manifest
+osgi {
+  manifest {
+    attributes 'Bundle-Vendor': 'Sensia Software LLC'
+    attributes 'Bundle-Activator': 'org.sensorhub.ui.Activator'
+  }
+}
+
+// add info to maven pom
+ext.pom >>= {
+  developers {
+    developer {
+      id 'alexrobin'
+      name 'Alex Robin'
+      organization 'Sensia Software LLC'
+      organizationUrl 'http://www.sensiasoftware.com' 
+    }
+  } 
+}

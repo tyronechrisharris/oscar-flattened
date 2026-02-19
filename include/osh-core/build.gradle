@@ -1,5 +1,5 @@
 apply from: 'common.gradle'
-apply from: 'release.gradle'
+//apply from: 'release.gradle'
 
 description = 'OSH Core Modules'
 

@@ -91,4 +91,4 @@ task releaseJavadoc {
   }
 }
 releaseJavadoc.dependsOn allJavadoc
-release.dependsOn releaseJavadoc
+//release.dependsOn releaseJavadoc

@@ -16,28 +16,47 @@ package org.sensorhub.ui;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+
+import org.sensorhub.api.module.IModule;
+import org.sensorhub.api.module.ModuleConfig;
 import org.sensorhub.api.security.IPermission;
 import org.sensorhub.api.security.IPermissionPath;
 import org.sensorhub.impl.security.BasicSecurityRealmConfig;
 import org.sensorhub.impl.security.BasicSecurityRealmConfig.PermissionsConfig;
 import org.sensorhub.impl.security.BasicSecurityRealmConfig.RoleConfig;
+import org.sensorhub.impl.security.BasicSecurityRealmConfig.UserConfig;
 import org.sensorhub.impl.security.PermissionSetting;
+import org.sensorhub.impl.security.TotpUtils;
 import org.sensorhub.ui.ValueEntryPopup.ValueCallback;
+import org.sensorhub.ui.api.IModuleConfigForm;
 import org.sensorhub.ui.data.ContainerProperty;
 import org.sensorhub.ui.data.MyBeanItem;
 import com.vaadin.v7.data.Item;
 import com.vaadin.v7.data.fieldgroup.FieldGroup;
 import com.vaadin.v7.data.util.converter.Converter;
+import com.google.zxing.BarcodeFormat;
+import com.google.zxing.client.j2se.MatrixToImageWriter;
+import com.google.zxing.common.BitMatrix;
+import com.google.zxing.qrcode.QRCodeWriter;
 import com.vaadin.event.Action;
 import com.vaadin.event.Action.Handler;
 import com.vaadin.server.FontAwesome;
+import com.vaadin.server.StreamResource;
+import com.vaadin.ui.Alignment;
 import com.vaadin.ui.Button;
 import com.vaadin.ui.HorizontalLayout;
+import com.vaadin.ui.Image;
+import com.vaadin.ui.Label;
 import com.vaadin.v7.ui.Table;
+import com.vaadin.v7.ui.TextField;
 import com.vaadin.v7.ui.TreeTable;
+import com.vaadin.ui.UI;
 import com.vaadin.ui.VerticalLayout;
 import com.vaadin.ui.Window;
 import com.vaadin.ui.Button.ClickEvent;
@@ -71,6 +90,9 @@ public class BasicSecurityConfigForm extends GenericConfigForm
             this.permConfig = (PermissionsConfig)beanItem.getBean();
         
         super.build(title, popupText, beanItem, includeSubForms);
+
+        if (beanItem.getBean() instanceof UserConfig)
+            addTotpControls((UserConfig)beanItem.getBean());
     }
     
     
@@ -402,6 +424,114 @@ public class BasicSecurityConfigForm extends GenericConfigForm
     }
     
     
+    protected void addTotpControls(UserConfig userConfig)
+    {
+        Button totpBtn = new Button();
+        totpBtn.addStyleName(STYLE_SMALL);
+
+        if (userConfig.totpSecret != null)
+            totpBtn.setCaption("Reset 2FA");
+        else
+            totpBtn.setCaption("Setup 2FA");
+
+        totpBtn.addClickListener(e -> {
+            String secret = TotpUtils.generateSecret();
+            String label = "OSCAR (" + userConfig.userID + ")";
+            String issuer = "OSCAR";
+            String qrUrl = TotpUtils.getQrCodeUrl(label, secret, issuer);
+
+            Window window = new Window("Setup 2FA");
+            window.setModal(true);
+            window.setWidth("300px");
+            window.setHeight("450px");
+            window.setResizable(false);
+            window.center();
+
+            VerticalLayout layout = new VerticalLayout();
+            layout.setMargin(true);
+            layout.setSpacing(true);
+
+            try
+            {
+                QRCodeWriter qrCodeWriter = new QRCodeWriter();
+                BitMatrix bitMatrix = qrCodeWriter.encode(qrUrl, BarcodeFormat.QR_CODE, 200, 200);
+                ByteArrayOutputStream pngOutputStream = new ByteArrayOutputStream();
+                MatrixToImageWriter.writeToStream(bitMatrix, "PNG", pngOutputStream);
+                byte[] pngData = pngOutputStream.toByteArray();
+
+                StreamResource resource = new StreamResource(() -> new ByteArrayInputStream(pngData), "qrcode.png");
+                Image image = new Image("Scan this QR code:", resource);
+                layout.addComponent(image);
+                layout.setComponentAlignment(image, Alignment.MIDDLE_CENTER);
+            }
+            catch (Exception ex)
+            {
+                layout.addComponent(new Label("Error generating QR code: " + ex.getMessage()));
+            }
+
+            TextField codeField = new TextField("Enter Code:");
+            layout.addComponent(codeField);
+
+            Button verifyBtn = new Button("Verify & Enable");
+            verifyBtn.addStyleName(STYLE_SMALL);
+            verifyBtn.addClickListener(ev -> {
+                String code = codeField.getValue();
+                if (TotpUtils.verifyCode(secret, code))
+                {
+                    userConfig.totpSecret = secret;
+
+                    // Persist
+                    try
+                    {
+                        AdminUI ui = (AdminUI) UI.getCurrent();
+                        IModule<?> module = ui.visibleModule;
+                        ModuleConfig rootConfig = getRootConfig();
+                        if (module != null && rootConfig != null)
+                        {
+                            ui.getParentHub().getModuleRegistry().updateModuleConfigAsync(module, rootConfig);
+                            DisplayUtils.showOperationSuccessful("2FA Enabled Successfully");
+                        }
+                        else
+                        {
+                            DisplayUtils.showErrorPopup("Cannot persist configuration: module or config not found", null);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                         DisplayUtils.showErrorPopup("Error saving configuration", ex);
+                    }
+
+                    window.close();
+                    totpBtn.setCaption("Reset 2FA");
+                }
+                else
+                {
+                    DisplayUtils.showErrorPopup("Invalid Code", null);
+                }
+            });
+            layout.addComponent(verifyBtn);
+            layout.setComponentAlignment(verifyBtn, Alignment.MIDDLE_CENTER);
+
+            window.setContent(layout);
+            getUI().addWindow(window);
+        });
+
+        this.addComponent(totpBtn);
+    }
+
+    protected ModuleConfig getRootConfig() {
+        IModuleConfigForm current = this;
+        while (current.getParentForm() != null) {
+            current = current.getParentForm();
+        }
+        if (current instanceof GenericConfigForm) {
+            GenericConfigForm rootForm = (GenericConfigForm) current;
+            return (ModuleConfig) ((MyBeanItem)rootForm.fieldGroup.getItemDataSource()).getBean();
+        }
+        return null;
+    }
+
+
     private void addTopLevelPermissions(HashSet<String> moduleIdStrings, List<String> permStringList)
     {
         for (String permString: permStringList)

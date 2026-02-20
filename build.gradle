@@ -23,7 +23,7 @@ dependencies {
     implementation project(':sensorhub-driver-videocam')
     implementation project(':sensorhub-driver-rtpcam')
     implementation project(':sensorhub-driver-ffmpeg')
-    implementation project(':sensorhub-process-ffmpeg')
+    //implementation project(':sensorhub-process-ffmpeg')
     implementation project(':sensorhub-service-video')
     implementation project(':sensorhub-datastore-postgis')
     implementation project(':sensorhub-service-fileserver')
@@ -105,4 +105,4 @@ distributions{
     }
 }
 
-apply from: gradle.oshCoreDir + '/release.gradle'
+//apply from: gradle.oshCoreDir + '/release.gradle'

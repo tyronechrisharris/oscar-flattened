@@ -1,5 +1,5 @@
 apply from: 'common.gradle'
-apply from: 'release.gradle'
+//apply from: 'release.gradle'
 
 description = 'OSH Core Modules'
 
@@ -91,4 +91,4 @@ task releaseJavadoc {
   }
 }
 releaseJavadoc.dependsOn allJavadoc
-release.dependsOn releaseJavadoc
+//release.dependsOn releaseJavadoc

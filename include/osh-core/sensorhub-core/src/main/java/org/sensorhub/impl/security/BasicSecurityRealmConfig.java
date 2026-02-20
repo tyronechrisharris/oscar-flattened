@@ -87,6 +87,9 @@ public class BasicSecurityRealmConfig extends SecurityModuleConfig
         //public String certificate;
         public List<String> roles = new ArrayList<>();
         
+        @DisplayInfo(label="TOTP Secret", desc="Secret key for 2FA")
+        public String totpSecret;
+
         @Override
         public String getId()
         {
@@ -120,6 +123,8 @@ public class BasicSecurityRealmConfig extends SecurityModuleConfig
         @Override
         public Map<String, Object> getAttributes()
         {
+            if (totpSecret != null)
+                return Collections.singletonMap("totpSecret", totpSecret);
             return Collections.emptyMap();
         }
     }

@@ -24,6 +24,7 @@ import org.eclipse.jetty.server.UserIdentity;
 import org.eclipse.jetty.util.security.Credential;
 import org.sensorhub.api.security.ISecurityManager;
 import org.sensorhub.api.security.IUserInfo;
+import org.sensorhub.impl.security.TotpUtils;
 
 
 public class OshLoginService implements LoginService
@@ -112,9 +113,30 @@ public class OshLoginService implements LoginService
         UserIdentity identity = null;
         if (!isCert)
         {
-            Credential storedCredential = Credential.getCredential(user.getPassword());
-            if (storedCredential.check(credentials))
-                identity = createUserIdentity(user, credentials);
+            // check for TOTP secret
+            String totpSecret = (String)user.getAttributes().get("totpSecret");
+
+            if (totpSecret != null)
+            {
+                String code = null;
+                if (credentials instanceof String)
+                    code = (String)credentials;
+                else if (credentials instanceof char[])
+                    code = new String((char[])credentials);
+                else if (credentials != null)
+                    code = credentials.toString();
+
+                // verify credentials as TOTP code
+                if (TotpUtils.verifyCode(totpSecret, code))
+                    identity = createUserIdentity(user, credentials);
+            }
+            else
+            {
+                // standard password verification
+                Credential storedCredential = Credential.getCredential(user.getPassword());
+                if (storedCredential.check(credentials))
+                    identity = createUserIdentity(user, credentials);
+            }
         }
         else
             identity = createUserIdentity(user, credentials);

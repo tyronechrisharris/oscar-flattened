@@ -488,7 +488,7 @@ public class BasicSecurityConfigForm extends GenericConfigForm
                         ModuleConfig rootConfig = getRootConfig();
                         if (module != null && rootConfig != null)
                         {
-                            ui.getParentHub().getModuleRegistry().updateModuleConfig(module, rootConfig);
+                            ui.getParentHub().getModuleRegistry().updateModuleConfigAsync(module, rootConfig);
                             DisplayUtils.showOperationSuccessful("2FA Enabled Successfully");
                         }
                         else
